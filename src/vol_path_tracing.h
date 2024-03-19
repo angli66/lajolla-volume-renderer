@@ -774,7 +774,10 @@ inline Spectrum next_event_estimation(const Scene &scene, Vector3 p, Vector3 dir
         T_light.y = T_light.y > 0 ? T_light.y : 0;
         T_light.z = T_light.z > 0 ? T_light.z : 0;
         if (mat) {
-            assert(vertex);
+            if (!vertex) {
+                return make_zero_spectrum();
+            }
+
             // bsdf
             Real G = max(-dot(dir_light, point_on_light.normal), Real(0)) / (dist_light * dist_light);
             Spectrum f = eval(*mat, dir_view, dir_light, *vertex, scene.texture_pool);
@@ -887,6 +890,7 @@ Spectrum vol_path_tracing(const Scene &scene,
 
             multi_trans_pdf *= trans_dir_pdf;
             multi_nee_pdf *= trans_nee_pdf;
+            if (!scatter && !isect_) break;  // handle the case where we always hit fake particles until the last iteration
         } else if (isect_) {
             ray.org = isect_->position;
         } else {  // In vacuum and no intersection
@@ -962,8 +966,9 @@ Spectrum vol_path_tracing(const Scene &scene,
             ray.dir = *next_dir_;
         } else {  // Hit a non index-matching surface
             never_bsdf = false;
-
-            assert(isect_.has_value());
+            if (!isect_.has_value()) {
+                break;
+            }
 
             const Material &mat = scene.materials[isect_->material_id];
             Vector3 dir_view = -ray.dir;
